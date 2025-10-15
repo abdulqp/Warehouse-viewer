@@ -6,59 +6,46 @@
   <title>Warehouse Viewer — Live Google Sheets</title>
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Import map so OrbitControls can resolve "three" -->
+  <!-- import map for bare "three" import -->
   <script type="importmap">
-  {
-    "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
-    }
-  }
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
   </script>
 </head>
-
 <body>
-  <!-- Top bar -->
   <div id="topbar" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#0e1521;border-bottom:1px solid #1c2a42">
     <strong>Warehouse Viewer (Live)</strong>
     <span id="status" style="color:#9ecbff">Loading…</span>
-
-    <!-- Search UI -->
-    <input id="searchBox" type="search" placeholder="Search SKU or Location" style="margin-left:14px;padding:6px;border-radius:6px;border:1px solid #28406a;background:#0a1321;color:#cfe5ff">
+    <input id="searchBox" type="search" placeholder="Search SKU or Location"
+           style="margin-left:14px;padding:6px;border-radius:6px;border:1px solid #28406a;background:#0a1321;color:#cfe5ff">
     <button id="searchBtn" style="padding:6px 10px;border-radius:6px;border:1px solid #28406a;background:#14325a;color:#cfe5ff;cursor:pointer">Search</button>
     <button id="resetBtn"  style="padding:6px 10px;border-radius:6px;border:1px solid #28406a;background:#1b2436;color:#cfe5ff;cursor:pointer">Reset</button>
   </div>
 
-  <!-- Right-side details panel (NEW) -->
-  <aside id="details" style="position:absolute;top:52px;right:12px;width:300px;background:#0e1521;border:1px solid #1c2a42;border-radius:10px;padding:12px;color:#cfe5ff;display:none;z-index:20">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <strong>Slot details</strong>
-      <button id="closeDetails" style="background:#1b2436;border:1px solid #28406a;color:#cfe5ff;border-radius:6px;padding:2px 8px;cursor:pointer">✕</button>
-    </div>
-
-    <label style="display:block;margin:6px 0 2px">Location</label>
-    <input id="d_location" type="text" readonly style="width:100%;padding:6px;border-radius:6px;border:1px solid #28406a;background:#0a1321;color:#cfe5ff">
-
-    <label style="display:block;margin:8px 0 2px">SKU</label>
-    <input id="d_sku" type="text" style="width:100%;padding:6px;border-radius:6px;border:1px solid #28406a;background:#0a1321;color:#cfe5ff">
-
-    <label style="display:block;margin:8px 0 2px">Quantity</label>
-    <input id="d_qty" type="number" style="width:100%;padding:6px;border-radius:6px;border:1px solid #28406a;background:#0a1321;color:#cfe5ff">
-
-    <div style="display:flex;gap:8px;margin-top:10px">
-      <button id="skuPrev" style="flex:1;background:#14325a;border:1px solid #28406a;color:#cfe5ff;border-radius:6px;padding:6px;cursor:pointer">SKU −1</button>
-      <button id="skuNext" style="flex:1;background:#14325a;border:1px solid #28406a;color:#cfe5ff;border-radius:6px;padding:6px;cursor:pointer">SKU +1</button>
-    </div>
-
-    <button id="saveDetails" style="margin-top:10px;width:100%;background:#1f5b2e;border:1px solid #2a7a3d;color:#eaffef;border-radius:6px;padding:8px;cursor:pointer">
-      Save to Google Sheets
-    </button>
-  </aside>
-
-  <!-- 3D canvas + tooltip -->
   <div id="scene" style="position:absolute;inset:52px 0 0 0"></div>
   <div id="tooltip" hidden></div>
 
-  <!-- Load the app -->
-  <script type="module" src="app.js"></script>
+  <!-- Read-only details panel (no Save button) -->
+  <div id="details" style="position:fixed;right:16px;top:112px;width:320px;background:#0e1521;border:1px solid #1c2a42;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.5);display:none;z-index:10">
+    <div style="padding:12px 14px;border-bottom:1px solid #1c2a42;display:flex;justify-content:space-between;align-items:center">
+      <div style="color:#cfe5ff;font-weight:600">Slot details</div>
+      <button id="closeDetails" style="background:#162033;border:1px solid #263655;color:#9ecbff;border-radius:6px;padding:4px 8px;cursor:pointer">✕</button>
+    </div>
+    <div style="padding:12px 14px;display:flex;flex-direction:column;gap:10px">
+      <label style="color:#9ecbff;font-size:12px">Location
+        <input id="d_location" disabled style="width:100%;padding:8px;border-radius:8px;border:1px solid #263655;background:#0a1321;color:#e9f2ff">
+      </label>
+      <label style="color:#9ecbff;font-size:12px">SKU
+        <input id="d_sku" disabled style="width:100%;padding:8px;border-radius:8px;border:1px solid #263655;background:#0a1321;color:#e9f2ff">
+      </label>
+      <label style="color:#9ecbff;font-size:12px">Quantity
+        <input id="d_qty" disabled style="width:100%;padding:8px;border-radius:8px;border:1px solid #263655;background:#0a1321;color:#e9f2ff">
+      </label>
+      <div style="font-size:12px;color:#7ea6d9;line-height:1.3">
+        Read-only: edit values in Google Sheets. Viewer auto-refreshes.
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js?v=readonly1"></script>
 </body>
 </html>
