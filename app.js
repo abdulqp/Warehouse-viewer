@@ -8,8 +8,7 @@ const LAYOUT_URL    = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRzha8xG_
 const INVENTORY_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRzha8xG_h2ykIvkRP1D8JKW8xDt1IwBR3eNQLkTGlyQrSH--eQpeZlMvcghyVhOqiG5n52oAZTAQ-A/pub?gid=761377476&single=true&output=csv';
 
 // CORS-safe Apps Script endpoint (googleusercontent domain, service=<Deployment ID>)
-const WEBAPP_URL =
-  'https://script.googleusercontent.com/macros/exec?service=AKfycbwnJ01DjSmfAYWdLoovgcZJgTo1w6Y7z6AylitccaZ8NfTOsjPZnh0se0b3ZxqYbu04nA';
+const WEBAPP_URL = 'https://script.googleusercontent.com/macros/exec?service=AKfycbwnJ01DjSmfAYWdLoovgcZJgTo1w6Y7z6AylitccaZ8NfTOsjPZnh0se0b3ZxqYbu04nA';
 const WEBAPP_KEY = ''; // set only if you added a key in Code.gs
 
 // Auto-refresh (ms)
@@ -61,7 +60,8 @@ async function loadCSV(url){
   return parseCSV(await res.text());
 }
 function buildInventoryMap(items){
-  const m=new Map(); for(const r of items){ const loc=(r.LOCATION||'').trim(); if(loc) m.set(loc, r); }
+  const m=new Map();
+  for(const r of items){ const loc=(r.LOCATION||'').trim(); if(loc) m.set(loc, r); }
   return m;
 }
 function getSkuKey(row){
@@ -244,66 +244,49 @@ function tweakSku(delta){
   el.value = el.value.replace(/(\d+)(?!.*\d)/, String(next).padStart(width,'0'));
 }
 
-// ---- Robust save: try JSON CORS first, then fall back to no-cors opaque ----
+// ---------- Save to Google Sheets (GitHub Pages / CORS) ----------
 async function saveDetailsToSheets(){
   const loc = $('d_location').value.trim();
   const sku = $('d_sku').value.trim();
   const qty = $('d_qty').value.trim();
-  if (!loc){ alert('Missing location'); return; }
-  if (!WEBAPP_URL){ alert('Saving is not enabled. Set WEBAPP_URL.'); return; }
 
+  if (!loc){ alert('Missing location'); return; }
   setStatus('Saving…');
-  if(state.polling) clearInterval(state.polling);
 
   const updates = {};
-  if (sku !== '') updates['SKU'] = sku;
-  if (qty !== '') updates['QUANTITY'] = isNaN(Number(qty)) ? qty : Number(qty);
+  if (sku) updates['SKU'] = sku;                           // adjust if your column is named differently
+  if (qty) updates['QUANTITY'] = isNaN(Number(qty)) ? qty : Number(qty);
 
   const postUrl = WEBAPP_URL + (WEBAPP_KEY ? ('&key=' + encodeURIComponent(WEBAPP_KEY)) : '');
-  const body = JSON.stringify({ fn:'updateInventory', location:loc, updates });
+  const payload = { fn: 'updateInventory', location: loc, updates };
 
-  // optimistic local update
-  const optimistic = () => {
+  try {
+    // Proper CORS JSON request (works on GitHub Pages)
+    const res = await fetch(postUrl, {
+      method: 'POST',
+      mode: 'cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'Save failed');
+
+    // Optimistic local update so UI reflects change immediately
     const row = state.inventory.get(loc) || {};
     Object.assign(row, updates);
     state.inventory.set(loc, row);
     renderLayout();
-    setStatus('Saved (pending sync)');
-    // force a quick refresh from Sheets so you see confirmed data
-    setTimeout(()=>refreshIfChanged().catch(()=>{}), 1200);
-  };
 
-  try {
-    // 1) best path: proper JSON response
-    const res = await fetch(postUrl, {
-      method:'POST',
-      headers:{ 'Content-Type':'text/plain;charset=utf-8' },
-      body
-    });
-    // If Apps Script answers with JSON and CORS is allowed, this works:
-    const j = await res.json();
-    if (!j.ok) throw new Error(j.error || 'Save failed');
-    setStatus('Saved');
-    optimistic();
-  } catch (err1) {
-    console.warn('Save JSON path failed, falling back to no-cors:', err1);
-    try {
-      // 2) fallback: opaque request (no CORS errors, but no readable response)
-      await fetch(postUrl, {
-        method:'POST',
-        mode:'no-cors',
-        headers:{ 'Content-Type':'text/plain;charset=utf-8' },
-        body
-      });
-      optimistic();
-    } catch (err2) {
-      console.error(err2);
-      alert('Save failed: ' + err2.message);
-      setStatus('Error');
-    }
-  } finally {
-    if (POLL_MS) startAutoRefresh();
-    setTimeout(()=>setStatus(''), 1500);
+    setStatus('Saved ✔️');
+    // pull a fresh read shortly after to confirm from Sheets
+    setTimeout(() => { refreshIfChanged().catch(()=>{}); }, 1200);
+
+  } catch (e) {
+    console.error(e);
+    alert('Save failed: ' + e.message);
+    setStatus('Error');
   }
 }
 
