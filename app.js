@@ -272,7 +272,7 @@ async function start(){
     lastHash = { layout: hashRows(layoutRows), inventory: hashRows(invenRows) };
 
     setStatus('Rendering…'); initScene(); renderLayout(); wireSearch(); wireDetailsButtons();
-    setStatus('Done'); // if (POLL_MS) startAutoRefresh();
+    setStatus('Done'); if (POLL_MS) startAutoRefresh();
   }catch(e){
     console.error(e); setStatus('Error: '+e.message); alert('Error: '+e.message);
   }
