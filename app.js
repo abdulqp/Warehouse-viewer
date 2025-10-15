@@ -7,15 +7,11 @@ window.THREE = THREE; // optional
 const LAYOUT_URL    = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRzha8xG_h2ykIvkRP1D8JKW8xDt1IwBR3eNQLkTGlyQrSH--eQpeZlMvcghyVhOqiG5n52oAZTAQ-A/pub?gid=1735579934&single=true&output=csv';
 const INVENTORY_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRzha8xG_h2ykIvkRP1D8JKW8xDt1IwBR3eNQLkTGlyQrSH--eQpeZlMvcghyVhOqiG5n52oAZTAQ-A/pub?gid=761377476&single=true&output=csv';
 
-// Apps Script endpoint (googleusercontent domain, service=<Deployment ID>)
-const WEBAPP_URL = 'https://script.googleusercontent.com/macros/exec?service=AKfycbwnJ01DjSmfAYWdLoovgcZJgTo1w6Y7z6AylitccaZ8NfTOsjPZnh0se0b3ZxqYbu04nA';
-const WEBAPP_KEY = ''; // set only if you added CFG.KEY in Code.gs
-
 // Auto-refresh (ms)
 const POLL_MS = 5000;
 
-// Flexible SKU header detection
-const SKU_FIELDS = ['SKU', 'ITEM NO', 'ITEM_NO', 'ITEMNO', 'ITEM CODE', 'ITEM', 'SKU NO', 'SKU#', 'PRODUCT CODE', 'PRODUCT', 'CODE'];
+// SKU header detection (flexible)
+const SKU_FIELDS = ['SKU','ITEM NO','ITEM_NO','ITEMNO','ITEM CODE','ITEM','SKU NO','SKU#','PRODUCT CODE','PRODUCT','CODE'];
 
 // ---------- State ----------
 const state = {
@@ -43,11 +39,8 @@ function parseCSV(text){
     const c=text[i];
     if(c==='"'){ if(inQ && text[i+1]==='"'){ field+='"'; i+=2; continue; } inQ=!inQ; i++; continue; }
     if(!inQ && c===','){ row.push(field); field=''; i++; continue; }
-    if(!inQ && (c==='\n'||c==='\r')){
-      if(field.length||row.length){ row.push(field); rows.push(row); row=[]; field=''; }
-      if(c==='\r'&&text[i+1]==='\n') i++;
-      i++; continue;
-    }
+    if(!inQ && (c==='\n'||c==='\r')){ if(field.length||row.length){ row.push(field); rows.push(row); row=[]; field=''; }
+      if(c==='\r'&&text[i+1]==='\n') i++; i++; continue; }
     field+=c; i++;
   }
   if(field.length||row.length){ row.push(field); rows.push(row); }
@@ -225,69 +218,17 @@ function wireSearch(){
   rst?.addEventListener('click',()=>{ box.value=''; clearHighlights(); setStatus(''); });
 }
 
-// ---------- Details panel ----------
+// ---------- Details panel (read-only) ----------
 function openDetails(location){
   const inv = state.inventory.get(location) || {};
   const skuKey = getSkuKey(inv) || 'SKU';
   const qtyKey = 'QUANTITY';
-
   $('d_location').value = location;
   $('d_sku').value      = String(inv[skuKey] || '');
   $('d_qty').value      = String(inv[qtyKey] || 0);
-
   $('details').style.display = 'block';
 }
 function closeDetails(){ $('details').style.display = 'none'; }
-function tweakSku(delta){
-  const el = $('d_sku');
-  const m  = String(el.value).match(/(\d+)(?!.*\d)/);
-  if (!m) return;
-  const n  = m[1]; const width = n.length;
-  const next = Math.max(0, parseInt(n,10) + delta);
-  el.value = el.value.replace(/(\d+)(?!.*\d)/, String(next).padStart(width,'0'));
-}
-
-// ---------- Save to Google Sheets (opaque no-cors; GitHub Pages safe) ----------
-async function saveDetailsToSheets(){
-  const loc = $('d_location').value.trim();
-  const sku = $('d_sku').value.trim();
-  const qty = $('d_qty').value.trim();
-  if (!loc){ alert('Missing location'); return; }
-
-  setStatus('Saving…');
-
-  // Build updates (adjust keys to your Inventory headers if needed)
-  const updates = {};
-  if (sku) updates['SKU'] = sku;
-  if (qty) updates['QUANTITY'] = isNaN(Number(qty)) ? qty : Number(qty);
-
-  const postUrl = WEBAPP_URL + (WEBAPP_KEY ? ('&key=' + encodeURIComponent(WEBAPP_KEY)) : '');
-  const body = JSON.stringify({ fn:'updateInventory', location:loc, updates });
-
-  try {
-    // Opaque request avoids CORS preflight; Apps Script parses e.postData.contents
-    await fetch(postUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body
-    });
-
-    // Optimistic UI update
-    const row = state.inventory.get(loc) || {};
-    Object.assign(row, updates);
-    state.inventory.set(loc, row);
-    renderLayout();
-    setStatus('Saved (syncing…)');
-
-    // Confirm by reloading from Sheets shortly after
-    setTimeout(() => { refreshIfChanged().catch(()=>{}); }, 1200);
-  } catch (e) {
-    console.error(e);
-    alert('Save failed: ' + e.message);
-    setStatus('Error');
-  }
-}
 
 // ---------- Polling (auto refresh) ----------
 async function refreshIfChanged(){
@@ -309,7 +250,7 @@ async function refreshIfChanged(){
     }
   }catch(e){
     console.warn('Auto-refresh error:', e);
-    setStatus('Update failed');
+    setStatus('Error');
   }
 }
 function startAutoRefresh(){
@@ -322,9 +263,6 @@ function startAutoRefresh(){
 // ---------- Boot ----------
 function wireDetailsButtons(){
   $('closeDetails')?.addEventListener('click', closeDetails);
-  $('skuPrev')?.addEventListener('click', ()=>tweakSku(-1));
-  $('skuNext')?.addEventListener('click', ()=>tweakSku(+1));
-  $('saveDetails')?.addEventListener('click', saveDetailsToSheets);
 }
 async function start(){
   try{
@@ -341,4 +279,4 @@ async function start(){
 }
 start();
 
-console.log('*** LIVE BUILD (search + details + autosync) ***');
+console.log('*** READ-ONLY BUILD (search + details + autosync) ***');
