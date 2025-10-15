@@ -8,7 +8,7 @@ const LAYOUT_URL    = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRzha8xG_
 const INVENTORY_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRzha8xG_h2ykIvkRP1D8JKW8xDt1IwBR3eNQLkTGlyQrSH--eQpeZlMvcghyVhOqiG5n52oAZTAQ-A/pub?gid=761377476&single=true&output=csv';
 
 // Auto-refresh (ms)
-const POLL_MS = 5000;
+const POLL_MS = 0;
 
 // SKU header detection (flexible)
 const SKU_FIELDS = ['SKU','ITEM NO','ITEM_NO','ITEMNO','ITEM CODE','ITEM','SKU NO','SKU#','PRODUCT CODE','PRODUCT','CODE'];
@@ -272,7 +272,7 @@ async function start(){
     lastHash = { layout: hashRows(layoutRows), inventory: hashRows(invenRows) };
 
     setStatus('Rendering…'); initScene(); renderLayout(); wireSearch(); wireDetailsButtons();
-    setStatus('Done'); if (POLL_MS) startAutoRefresh();
+    setStatus('Done'); // if (POLL_MS) startAutoRefresh();
   }catch(e){
     console.error(e); setStatus('Error: '+e.message); alert('Error: '+e.message);
   }
