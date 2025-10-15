@@ -7,15 +7,15 @@ window.THREE = THREE; // optional
 const LAYOUT_URL    = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRzha8xG_h2ykIvkRP1D8JKW8xDt1IwBR3eNQLkTGlyQrSH--eQpeZlMvcghyVhOqiG5n52oAZTAQ-A/pub?gid=1735579934&single=true&output=csv';
 const INVENTORY_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRzha8xG_h2ykIvkRP1D8JKW8xDt1IwBR3eNQLkTGlyQrSH--eQpeZlMvcghyVhOqiG5n52oAZTAQ-A/pub?gid=761377476&single=true&output=csv';
 
-// CORS-safe Apps Script endpoint (googleusercontent domain, service=<Deployment ID>)
+// Apps Script endpoint (googleusercontent domain, service=<Deployment ID>)
 const WEBAPP_URL = 'https://script.googleusercontent.com/macros/exec?service=AKfycbwnJ01DjSmfAYWdLoovgcZJgTo1w6Y7z6AylitccaZ8NfTOsjPZnh0se0b3ZxqYbu04nA';
-const WEBAPP_KEY = ''; // set only if you added a key in Code.gs
+const WEBAPP_KEY = ''; // set only if you added CFG.KEY in Code.gs
 
 // Auto-refresh (ms)
 const POLL_MS = 5000;
 
-// SKU header detection (flexible)
-const SKU_FIELDS = ['SKU','ITEM NO','ITEM_NO','ITEMNO','ITEM CODE','ITEM','SKU NO','SKU#','PRODUCT CODE','PRODUCT','CODE'];
+// Flexible SKU header detection
+const SKU_FIELDS = ['SKU', 'ITEM NO', 'ITEM_NO', 'ITEMNO', 'ITEM CODE', 'ITEM', 'SKU NO', 'SKU#', 'PRODUCT CODE', 'PRODUCT', 'CODE'];
 
 // ---------- State ----------
 const state = {
@@ -43,8 +43,11 @@ function parseCSV(text){
     const c=text[i];
     if(c==='"'){ if(inQ && text[i+1]==='"'){ field+='"'; i+=2; continue; } inQ=!inQ; i++; continue; }
     if(!inQ && c===','){ row.push(field); field=''; i++; continue; }
-    if(!inQ && (c==='\n'||c==='\r')){ if(field.length||row.length){ row.push(field); rows.push(row); row=[]; field=''; }
-      if(c==='\r'&&text[i+1]==='\n') i++; i++; continue; }
+    if(!inQ && (c==='\n'||c==='\r')){
+      if(field.length||row.length){ row.push(field); rows.push(row); row=[]; field=''; }
+      if(c==='\r'&&text[i+1]==='\n') i++;
+      i++; continue;
+    }
     field+=c; i++;
   }
   if(field.length||row.length){ row.push(field); rows.push(row); }
@@ -244,45 +247,41 @@ function tweakSku(delta){
   el.value = el.value.replace(/(\d+)(?!.*\d)/, String(next).padStart(width,'0'));
 }
 
-// ---------- Save to Google Sheets (GitHub Pages / CORS) ----------
+// ---------- Save to Google Sheets (opaque no-cors; GitHub Pages safe) ----------
 async function saveDetailsToSheets(){
   const loc = $('d_location').value.trim();
   const sku = $('d_sku').value.trim();
   const qty = $('d_qty').value.trim();
-
   if (!loc){ alert('Missing location'); return; }
+
   setStatus('Saving…');
 
+  // Build updates (adjust keys to your Inventory headers if needed)
   const updates = {};
-  if (sku) updates['SKU'] = sku;                           // adjust if your column is named differently
+  if (sku) updates['SKU'] = sku;
   if (qty) updates['QUANTITY'] = isNaN(Number(qty)) ? qty : Number(qty);
 
   const postUrl = WEBAPP_URL + (WEBAPP_KEY ? ('&key=' + encodeURIComponent(WEBAPP_KEY)) : '');
-  const payload = { fn: 'updateInventory', location: loc, updates };
+  const body = JSON.stringify({ fn:'updateInventory', location:loc, updates });
 
   try {
-    // Proper CORS JSON request (works on GitHub Pages)
-    const res = await fetch(postUrl, {
+    // Opaque request avoids CORS preflight; Apps Script parses e.postData.contents
+    await fetch(postUrl, {
       method: 'POST',
-      mode: 'cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body
     });
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const j = await res.json();
-    if (!j.ok) throw new Error(j.error || 'Save failed');
-
-    // Optimistic local update so UI reflects change immediately
+    // Optimistic UI update
     const row = state.inventory.get(loc) || {};
     Object.assign(row, updates);
     state.inventory.set(loc, row);
     renderLayout();
+    setStatus('Saved (syncing…)');
 
-    setStatus('Saved ✔️');
-    // pull a fresh read shortly after to confirm from Sheets
+    // Confirm by reloading from Sheets shortly after
     setTimeout(() => { refreshIfChanged().catch(()=>{}); }, 1200);
-
   } catch (e) {
     console.error(e);
     alert('Save failed: ' + e.message);
