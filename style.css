@@ -1,0 +1,6 @@
+html,body{height:100%;margin:0;padding:0;background:#0b0f14;color:#e7edf3;font:14px/1.4 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial}
+#topbar{position:fixed;top:0;left:0;right:0;height:44px;background:#0e1521;border-bottom:1px solid #1c2a42;display:flex;align-items:center;justify-content:space-between;padding:0 10px;z-index:10}
+#status{margin-left:10px;color:#9ecbff}
+#scene{position:absolute;inset:44px 0 0 0}
+#tooltip{position:fixed;pointer-events:none;background:#0e1521;border:1px solid #20304e;padding:8px 10px;border-radius:8px;color:#cfe5ff;box-shadow:0 6px 18px rgba(0,0,0,.35);font:12px/1.4 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial;max-width:320px;white-space:pre}
+canvas{display:block}
